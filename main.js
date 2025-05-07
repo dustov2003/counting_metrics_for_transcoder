@@ -6,7 +6,14 @@ const formats = {
   "mov": ["avc1.42403e", "mp4a.40.2", "video/quicktime"],
 };
 
-// Функция для получения ширины и высоты видео
+async function getLocalVideo() {
+  const response = await fetch('test_videos/bbb_1080_30_noaud.mp4');
+  const blob = await response.blob();
+  const file = new File([blob], 'video.mp4', { type: 'video/mp4' });
+  return file;
+}
+
+
 function getVideoDimensions(file) {
   return new Promise((resolve, reject) => {
     const video = document.createElement("video");
@@ -26,14 +33,14 @@ function getVideoDimensions(file) {
 }
 
 async function main() {
-  const fileBox = document.getElementById("file");
-  await new Promise(res => {
-    fileBox.onchange = function () {
-      if (fileBox.files.length) res();
-    };
-  });
+  // const fileBox = document.getElementById("file");
+  // await new Promise(res => {
+  //   fileBox.onchange = function () {
+  //     if (fileBox.files.length) res();
+  //   };
+  // });
 
-  const file = fileBox.files[0];
+  const file = await getLocalVideo();
   document.getElementById("input-box").style.display = "none";
 
   const libav = await LibAV.LibAV({ noworker: true });
@@ -46,13 +53,14 @@ async function main() {
   };
 
   // Получаем размеры видео из самого файла
-  const { width, height } = await getVideoDimensions(file);
+  const width =1920, height =1080 ;
 
   console.log(width,height)
   for (const containerType in formats) {
     const [vc, ac, mimeType] = formats[containerType];
 
     for (let i = 0; i < 5; i++) {
+      console.log("start transcode");
       const st = performance.now();
       const output = await transcoder.transcode(file, {
         containerType,
@@ -64,6 +72,7 @@ async function main() {
       });
       const duration = (performance.now() - st) / 1000;
       metrics[containerType][i] = parseFloat(duration.toFixed(2));
+      console.log("end transcode")
     }
   }
 
