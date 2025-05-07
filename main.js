@@ -1,9 +1,20 @@
 import { Transcoder } from "./transcoder.js";
 
+// const formats = {
+//   "webm": ["vp09.00.10.08.03.1.1.1.0", "opus", "video/webm"],
+//   "mkv": ["avc1.42403e", "opus", "video/x-matroska"],
+//   "mov": ["avc1.42403e", "mp4a.40.2", "video/quicktime"],
+// };
+
 const formats = {
-  "webm": ["vp09.00.10.08.03.1.1.1.0", "opus", "video/webm"],
-  "mkv": ["avc1.42403e", "opus", "video/x-matroska"],
-  "mov": ["avc1.42403e", "mp4a.40.2", "video/quicktime"],
+  // "webm": ["vp09.00.10.08.03.1.1.1.0", "opus", "video/webm"],
+  // "mp4": ["hvc1.1.6.L123.B0", "mp4a.40.2", "video/mp4"],
+  // "mkv": ["avc1.42403e", "opus", "video/x-matroska"],
+  // "avi": ["avc1.42403e", "mp4a.40.2", "video/x-msvideo"],
+  // "mov": ["avc1.42403e", "mp4a.40.2", "video/quicktime"],
+  // "flv": ["avc1.42403e", "mp4a.40.2", "video/x-flv"],
+  "mpg": ["mp1v", "mp2a", "video/mpeg"],
+  // "ts": ["avc1.42403e", "mp4a.40.2", "video/mp2t"],
 };
 
 async function getLocalVideo() {
@@ -33,12 +44,12 @@ function getVideoDimensions(file) {
 }
 
 async function main() {
-  // const fileBox = document.getElementById("file");
-  // await new Promise(res => {
-  //   fileBox.onchange = function () {
-  //     if (fileBox.files.length) res();
-  //   };
-  // });
+  const fileBox = document.getElementById("file");
+  await new Promise(res => {
+    fileBox.onchange = function () {
+      if (fileBox.files.length) res();
+    };
+  });
 
   const file = await getLocalVideo();
   document.getElementById("input-box").style.display = "none";
@@ -50,6 +61,9 @@ async function main() {
     "webm": [0, 0, 0, 0, 0],
     "mkv": [0, 0, 0, 0, 0],
     "mov": [0, 0, 0, 0, 0],
+    "avi": [0, 0, 0, 0, 0],
+    "flv": [0, 0, 0, 0, 0],
+    "mpg": [0, 0, 0, 0, 0],
   };
 
   // Получаем размеры видео из самого файла
@@ -59,7 +73,7 @@ async function main() {
   for (const containerType in formats) {
     const [vc, ac, mimeType] = formats[containerType];
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 2; i++) {
       console.log("start transcode");
       const st = performance.now();
       const output = await transcoder.transcode(file, {
