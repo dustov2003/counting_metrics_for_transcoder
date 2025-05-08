@@ -422,7 +422,7 @@ export class Transcoder extends EventTarget {
           error: error.message,
           percent: 0,
           processedDuration: 0,
-          totalDuration: totalDuration || 0
+          totalDuration: 0,
         }
       }));
       console.error("Transcoding error:", error);

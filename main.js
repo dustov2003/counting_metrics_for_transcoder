@@ -1,27 +1,25 @@
-import { Transcoder } from "./transcoder.js";
+import {Transcoder} from "./transcoder.js";
 
-// const formats = {
-//   "webm": ["vp09.00.10.08.03.1.1.1.0", "opus", "video/webm"],
-//   "mkv": ["avc1.42403e", "opus", "video/x-matroska"],
-//   "mov": ["avc1.42403e", "mp4a.40.2", "video/quicktime"],
-// };
 
 const formats = {
-  // "webm": ["vp09.00.10.08.03.1.1.1.0", "opus", "video/webm"],
-  // "mp4": ["hvc1.1.6.L123.B0", "mp4a.40.2", "video/mp4"],
-  // "mkv": ["avc1.42403e", "opus", "video/x-matroska"],
-  // "avi": ["avc1.42403e", "mp4a.40.2", "video/x-msvideo"],
-  // "mov": ["avc1.42403e", "mp4a.40.2", "video/quicktime"],
-  // "flv": ["avc1.42403e", "mp4a.40.2", "video/x-flv"],
-  "mpg": ["mp1v", "mp2a", "video/mpeg"],
-  // "ts": ["avc1.42403e", "mp4a.40.2", "video/mp2t"],
+  "mov": ["avc1.42403e", "mp4a.40.2", "video/quicktime"],
+  "flv": ["avc1.42403e", "mp4a.40.2", "video/x-flv"],
+  "webm": ["vp09.00.10.08.03.1.1.1.0", "opus", "video/webm"],
+  "mp4": ["hvc1.1.6.L123.B0", "mp4a.40.2", "video/mp4"],
+  "mkv": ["avc1.42403e", "opus", "video/x-matroska"],
 };
 
-async function getLocalVideo() {
-  const response = await fetch('test_videos/bbb_1080_30_noaud.mp4');
+const resolutions = [1080,
+  2160,
+]
+const fpss = [30,
+  60,
+]
+
+async function getLocalVideo(format,res,fps) {
+  const response = await fetch(`test_videos/${format}/bbb_${res}_${fps}_noaud.${format}`);
   const blob = await response.blob();
-  const file = new File([blob], 'video.mp4', { type: 'video/mp4' });
-  return file;
+  return new File([blob], 'video.mp4', {type: 'video/mp4'});
 }
 
 
@@ -51,54 +49,82 @@ async function main() {
     };
   });
 
-  const file = await getLocalVideo();
   document.getElementById("input-box").style.display = "none";
 
-  const libav = await LibAV.LibAV({ noworker: true });
-  let transcoder = new Transcoder({ libav });
+  const libav = await LibAV.LibAV({noworker: true});
+  let transcoder = new Transcoder({libav});
 
-  let metrics = {
-    "webm": [0, 0, 0, 0, 0],
-    "mkv": [0, 0, 0, 0, 0],
-    "mov": [0, 0, 0, 0, 0],
-    "avi": [0, 0, 0, 0, 0],
-    "flv": [0, 0, 0, 0, 0],
-    "mpg": [0, 0, 0, 0, 0],
-  };
+
+  let metrics = {};
+  for (const format of Object.keys(formats)) {
+    metrics[format] = {};
+    for (const res of resolutions) {
+      for (const fps of fpss) {
+        const key = `${res}_${fps}`;
+        metrics[format][key] = {};
+        for (const targetFormat of Object.keys(formats)) {
+          if (targetFormat !== format) {
+            metrics[format][key][targetFormat] = [0, 0, 0, 0, 0];
+          }
+        }
+      }
+    }
+  }
 
   // Получаем размеры видео из самого файла
-  const width =1920, height =1080 ;
 
-  console.log(width,height)
-  for (const containerType in formats) {
-    const [vc, ac, mimeType] = formats[containerType];
-
-    for (let i = 0; i < 2; i++) {
-      console.log("start transcode");
-      const st = performance.now();
-      const output = await transcoder.transcode(file, {
-        containerType,
-        vc,
-        ac,
-        width,
-        height,
-        keepAspectRatio: false,
-      });
-      const duration = (performance.now() - st) / 1000;
-      metrics[containerType][i] = parseFloat(duration.toFixed(2));
-      console.log("end transcode")
+  for (const format in formats) {
+    for(const res of resolutions){
+      for (const fps of fpss) {
+        const file = await getLocalVideo(format,res,fps);
+        const height = res;
+        const width = res===1080? 1920:3840;
+        console.log(format,width, height,fps)
+        for (const containerType in formats) {
+          if ( containerType === format) continue;
+          const [vc, ac,] = formats[containerType];
+          for (let i = 0; i < 5; i++) {
+            console.log("start transcode");
+            const st = performance.now();
+            const output = await transcoder.transcode(file, {
+              containerType,
+              vc,
+              ac,
+              width,
+              height,
+              keepAspectRatio: false,
+            });
+            const duration = (performance.now() - st) / 1000;const key = `${res}_${fps}`;
+            metrics[format][key][containerType][i] = parseFloat(duration.toFixed(2));
+            console.log(`end transcode from ${format} to ${containerType}, time: ${duration}`);
+          }
+        }
+      }
     }
   }
 
   await libav.terminate();
 
   let res = "";
-  for (const key in metrics) {
-    if (metrics.hasOwnProperty(key)) {
-      res += `${key},${metrics[key].join(',')}\n`;
+  for (const source of Object.keys(metrics)) {
+    for (const resFps of Object.keys(metrics[source])) {
+      for (const target of Object.keys(metrics[source][resFps])) {
+        res += `${source},${target},${resFps},${metrics[source][resFps][target].join(',')}\n`;
+      }
     }
   }
   console.log(res);
+
+  const blob = new Blob([res], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'transcoding_metrics.txt'; // Имя файла для скачивания
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url); // Освобождаем память
+
 }
 
 main();
